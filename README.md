@@ -19,18 +19,18 @@ go run ./cmd/cleandev clean --profile dev --confirm
 
 ## 安装（Homebrew）
 
-本仓库包含 tap 公式模板：`homebrew-tap/Formula/cleandev.rb`。
+本仓库包含 tap 公式模板：`homebrew-tap/Formula/cleandev-cli.rb`。
 
 你发布 release 后，将公式里的：
 - `url`
 - `sha256`
 - `version`
 
-替换为对应 release 的值，然后将 formula 推到独立 tap 仓库（例如 `wangweicheng7/homebrew-tap`），用户即可安装：
+替换为对应 release 的值，然后将 formula 推到独立 tap 仓库（例如 `wangweicheng7/homebrew-tap`）。注意：formula 名为 `cleandev-cli`，因此安装命令是 `brew install cleandev-cli`：
 
 ```bash
-brew tap wangweicheng7/tap
-brew install cleandev
+brew tap wangweicheng7/homebrew-tap
+brew install cleandev-cli
 cleandev doctor
 ```
 
