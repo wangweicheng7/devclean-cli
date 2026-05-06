@@ -40,6 +40,7 @@ func (f *boolFlag) Set(s string) error {
 	return flag.ErrHelp
 }
 func (f *boolFlag) IsSet() bool { return f.set }
+func (f *boolFlag) IsBoolFlag() bool { return true }
 
 func newBoolFlag(def bool) *boolFlag { return &boolFlag{v: def} }
 
