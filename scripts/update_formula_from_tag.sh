@@ -7,11 +7,11 @@ if [[ -z "${TAG}" ]]; then
   exit 2
 fi
 
-REPO="wangweicheng7/cleandev-cli"
+REPO="wangweicheng7/devclean-cli"
 FORMULA_FILE="homebrew-tap/Formula/devclean-cli.rb"
 
 URL="https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz"
-TMP_TAR="$(mktemp -t cleandev-cli.XXXXXX.tar.gz)"
+TMP_TAR="$(mktemp -t devclean-cli.XXXXXX.tar.gz)"
 
 cleanup() {
   rm -f "${TMP_TAR}"

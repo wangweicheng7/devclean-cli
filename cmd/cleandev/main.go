@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/wangweicheng7/cleandev-cli/internal/cli"
+	"github.com/wangweicheng7/devclean-cli/internal/cli"
 )
 
 func main() {

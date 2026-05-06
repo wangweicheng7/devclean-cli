@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/wangweicheng7/cleandev-cli/internal/clean"
+	"github.com/wangweicheng7/devclean-cli/internal/clean"
 )
 
 func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Writer) int {

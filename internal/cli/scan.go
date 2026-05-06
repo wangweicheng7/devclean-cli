@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/wangweicheng7/cleandev-cli/internal/clean"
+	"github.com/wangweicheng7/devclean-cli/internal/clean"
 )
 
 func RunScan(ctx context.Context, args []string, out io.Writer, errOut io.Writer) int {
