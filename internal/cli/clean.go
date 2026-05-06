@@ -143,7 +143,7 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 			fmt.Fprintln(out, "deleted: (none)")
 		}
 	}
-	printPlanText(out, res.Plan)
+	printPlanTable(out, res.Plan)
 	return 0
 }
 

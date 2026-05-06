@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/wangweicheng7/devclean-cli/internal/clean"
@@ -87,7 +88,7 @@ func RunScan(ctx context.Context, args []string, out io.Writer, errOut io.Writer
 		return 0
 	}
 
-	printPlanText(out, plan)
+	printPlanTable(out, plan)
 	return 0
 }
 
@@ -113,43 +114,47 @@ func filterItemsByIDs(items []clean.Item, includeIDs, excludeIDs []string) []cle
 	return out
 }
 
-func printPlanText(w io.Writer, plan clean.Plan) {
-	fmt.Fprintf(w, "profile: %s\n", plan.Profile)
-	if len(plan.Categories) > 0 {
-		var parts []string
-		for _, c := range plan.Categories {
-			parts = append(parts, string(c))
-		}
-		fmt.Fprintf(w, "categories: %s\n", strings.Join(parts, ","))
+func printPlanTable(w io.Writer, plan clean.Plan) {
+	// Collect items that actually exist on disk. This keeps output focused.
+	type row struct {
+		name string
+		b    int64
 	}
-	fmt.Fprintln(w)
+	var rows []row
+	var total int64
+	maxName := 0
 
 	for _, it := range plan.Items {
-		status := "missing"
-		if it.Skipped {
-			status = "skipped"
-		} else if it.Exists {
-			status = "found"
+		if !it.Exists || it.Skipped {
+			continue
 		}
-		mode := string(it.Mode)
-		if it.ReportOnly {
-			mode = "report_only"
+		name := it.Name
+		if it.ReportOnly || it.Mode == clean.ModeReportOnly {
+			name = name + " (report-only)"
 		}
-		size := ""
+		if len(name) > maxName {
+			maxName = len(name)
+		}
+		rows = append(rows, row{name: name, b: it.Bytes})
 		if it.Bytes > 0 {
-			size = fmt.Sprintf(" (%s)", humanBytes(it.Bytes))
+			total += it.Bytes
 		}
-		fmt.Fprintf(w, "- [%s] %s: %s%s\n", status, it.Name, mode, size)
-		fmt.Fprintf(w, "  path: %s\n", it.Path)
-		if it.Reason != "" {
-			fmt.Fprintf(w, "  reason: %s\n", it.Reason)
+	}
+
+	sort.SliceStable(rows, func(i, j int) bool { return rows[i].b > rows[j].b })
+
+	for _, r := range rows {
+		size := "-"
+		if r.b > 0 {
+			size = humanBytes(r.b)
 		}
-		if it.SkipReason != "" {
-			fmt.Fprintf(w, "  skip: %s\n", it.SkipReason)
-		}
-		if len(it.Warnings) > 0 {
-			fmt.Fprintf(w, "  warnings: %s\n", strings.Join(it.Warnings, "; "))
-		}
+		fmt.Fprintf(w, "%-*s  %s\n", maxName, r.name, size)
+	}
+	if len(rows) > 0 {
+		fmt.Fprintf(w, "%s\n", strings.Repeat("-", maxName+2+12))
+		fmt.Fprintf(w, "%-*s  %s\n", maxName, "Total", humanBytes(total))
+	} else {
+		fmt.Fprintln(w, "(no matching items found)")
 	}
 }
 

@@ -3,16 +3,18 @@ package cli
 import "fmt"
 
 func humanBytes(n int64) string {
-	if n < 1024 {
-		return fmt.Sprintf("%dB", n)
+	// Human-friendly, decimal units (MB/GB) as typically expected by users.
+	if n < 1000 {
+		return fmt.Sprintf("%d B", n)
 	}
-	const unit = 1024
-	div, exp := int64(unit), 0
-	for v := n / unit; v >= unit; v /= unit {
+	const unit = 1000
+	div, exp := float64(unit), 0
+	v := float64(n)
+	for v/div >= unit && exp < 3 {
 		div *= unit
 		exp++
 	}
-	suffix := []string{"KiB", "MiB", "GiB", "TiB"}[exp]
-	return fmt.Sprintf("%.1f%s", float64(n)/float64(div), suffix)
+	suffix := []string{"KB", "MB", "GB", "TB"}[exp]
+	return fmt.Sprintf("%.2f %s", float64(n)/div, suffix)
 }
 
