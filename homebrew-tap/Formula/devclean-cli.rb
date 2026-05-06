@@ -9,7 +9,7 @@ class DevcleanCli < Formula
   depends_on "go" => :build
 
   def install
-    system "go", "build", *std_go_args(output: bin/"devclean"), "./cmd/cleandev"
+    system "go", "build", *std_go_args(output: bin/"devclean"), "./cmd/devclean"
   end
 
   test do

@@ -13,9 +13,9 @@
 ## 快速开始（本地运行）
 
 ```bash
-go run ./cmd/cleandev scan --profile safe
-go run ./cmd/cleandev clean --profile dev --dry-run
-go run ./cmd/cleandev clean --profile dev --confirm
+go run ./cmd/devclean scan --profile safe
+go run ./cmd/devclean clean --profile dev --dry-run
+go run ./cmd/devclean clean --profile dev --confirm
 ```
 
 ## 安装（Homebrew）

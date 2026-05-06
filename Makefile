@@ -11,14 +11,14 @@ test:
 	go test $(PKG)
 
 build:
-	go build -o bin/$(BINARY_NAME) ./cmd/cleandev
+	go build -o bin/$(BINARY_NAME) ./cmd/devclean
 
 run:
-	go run ./cmd/cleandev $(ARGS)
+	go run ./cmd/devclean $(ARGS)
 
 install-user:
 	mkdir -p "$(HOME)/bin"
-	go build -o "$(HOME)/bin/$(BINARY_NAME)" ./cmd/cleandev
+	go build -o "$(HOME)/bin/$(BINARY_NAME)" ./cmd/devclean
 	@echo "installed to $(HOME)/bin/$(BINARY_NAME)"
 
 uninstall-user:
@@ -28,7 +28,7 @@ uninstall-user:
 sha256-url:
 	@URL="$${URL:-}"; \
 	if [ -z "$$URL" ]; then echo "usage: make sha256-url URL=https://..." >&2; exit 2; fi; \
-	tmp="$$(mktemp -t cleandev-sha.XXXXXX)"; \
+	tmp="$$(mktemp -t devclean-sha.XXXXXX)"; \
 	curl -L -o "$$tmp" "$$URL"; \
 	shasum -a 256 "$$tmp" | awk '{print $$1}'; \
 	rm -f "$$tmp"
