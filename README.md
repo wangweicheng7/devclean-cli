@@ -66,5 +66,12 @@ source ~/.bashrc
 - `devclean scan [--profile safe|dev|aggressive] [--json] [--category cache,logs,build]`
 - `devclean plan [同 scan]`
 - `devclean clean [--dry-run] [--confirm] [--interactive] [--profile ...] [--category ...] [--json]`
+- `devclean config init [--path .devcleanrc.json] [--force]`
 - `devclean doctor`
+
+## 配置文件（可选）
+
+默认配置文件名：`.devcleanrc.json`（当前目录）。
+
+优先级：**CLI 参数 > `--config` 指定文件 > 当前目录配置文件 > 默认值**。
 

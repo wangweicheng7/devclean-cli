@@ -17,27 +17,46 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 	fs := flag.NewFlagSet("clean", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 
-	var (
-		profile  = fs.String("profile", string(clean.ProfileSafe), "safe|dev|aggressive")
-		category = fs.String("category", "", "comma-separated: cache,logs,build (default all)")
-		repo     = fs.String("repo", "", "path to repository root (scan build artifacts; report-only)")
-		dryRun   = fs.Bool("dry-run", false, "preview actions without deleting")
-		confirm  = fs.Bool("confirm", false, "execute deletion (required unless --dry-run)")
-		interactive = fs.Bool("interactive", false, "interactively confirm each candidate item")
-		asJSON   = fs.Bool("json", false, "output as json")
-		withSize = fs.Bool("with-size", true, "calculate directory sizes (may be slow)")
-	)
+	configPath := &stringFlag{}
+	fs.Var(configPath, "config", "path to config file (default: .devcleanrc.json in current dir)")
+
+	profile := &stringFlag{v: string(clean.ProfileSafe)}
+	fs.Var(profile, "profile", "safe|dev|aggressive")
+
+	category := &stringFlag{}
+	fs.Var(category, "category", "comma-separated: cache,logs,build (default all)")
+
+	repo := &stringFlag{}
+	fs.Var(repo, "repo", "path to repository root (scan build artifacts; report-only)")
+
+	dryRun := fs.Bool("dry-run", false, "preview actions without deleting")
+	confirm := fs.Bool("confirm", false, "execute deletion (required unless --dry-run)")
+	interactive := fs.Bool("interactive", false, "interactively confirm each candidate item")
+	asJSON := fs.Bool("json", false, "output as json")
+
+	withSizeFlag := newBoolFlag(true)
+	fs.Var(withSizeFlag, "with-size", "calculate directory sizes (may be slow)")
 
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
-	p, err := clean.ParseProfile(*profile)
+	cfg, usedPath, err := loadConfig(configPath.v)
+	if err != nil {
+		fmt.Fprintln(errOut, validateConfigPath(err, usedPath).Error())
+		return 1
+	}
+	applyStringFromConfig(&profile.v, profile.IsSet(), cfg.Profile)
+	applyStringFromConfig(&category.v, category.IsSet(), cfg.Category)
+	applyStringFromConfig(&repo.v, repo.IsSet(), cfg.Repo)
+	applyBoolFromConfig(&withSizeFlag.v, withSizeFlag.IsSet(), cfg.WithSize)
+
+	p, err := clean.ParseProfile(profile.v)
 	if err != nil {
 		fmt.Fprintln(errOut, err.Error())
 		return 2
 	}
-	cats, err := clean.ParseCategories(*category)
+	cats, err := clean.ParseCategories(category.v)
 	if err != nil {
 		fmt.Fprintln(errOut, err.Error())
 		return 2
@@ -59,12 +78,15 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 		plan, err := clean.BuildPlan(ctx, clean.ScanOptions{
 			Profile:    p,
 			Categories: catSet,
-			WithSize:   *withSize,
-			RepoRoot:   *repo,
+			WithSize:   withSizeFlag.v,
+			RepoRoot:   repo.v,
 		})
 		if err != nil {
 			fmt.Fprintln(errOut, err.Error())
 			return 1
+		}
+		if len(cfg.IncludeIDs) > 0 || len(cfg.ExcludeIDs) > 0 {
+			plan.Items = filterItemsByIDs(plan.Items, cfg.IncludeIDs, cfg.ExcludeIDs)
 		}
 		ids, err := chooseInteractive(plan, out, errOut)
 		if err != nil {
@@ -83,9 +105,10 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 		Confirm:   *confirm,
 		Profile:   p,
 		Category:  catSet,
-		WithSize:  *withSize,
-		RepoRoot:  *repo,
+		WithSize:  withSizeFlag.v,
+		RepoRoot:  repo.v,
 		TargetIDs: selectedIDs,
+		ExcludeIDs: cfg.ExcludeIDs,
 	})
 	if err != nil {
 		fmt.Fprintln(errOut, err.Error())

@@ -9,9 +9,10 @@ func PrintHelp(w io.Writer) {
 	fmt.Fprint(w, `devclean - macOS developer cleanup CLI (safe-first)
 
 Usage:
-  devclean scan  [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--with-size] [--json]
+  devclean scan  [--config path] [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--with-size] [--json]
   devclean plan  [same as scan]
-  devclean clean [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--dry-run] [--confirm] [--interactive] [--with-size] [--json]
+  devclean clean [--config path] [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--dry-run] [--confirm] [--interactive] [--with-size] [--json]
+  devclean config init [--path .devcleanrc.json] [--force]
   devclean doctor
 
 Notes:

@@ -38,6 +38,8 @@ func realMain() int {
 		return cli.RunScan(ctx, cmdArgs, os.Stdout, os.Stderr)
 	case "clean":
 		return cli.RunClean(ctx, cmdArgs, os.Stdout, os.Stderr)
+	case "config":
+		return cli.RunConfig(ctx, cmdArgs, os.Stdout, os.Stderr)
 	case "doctor":
 		return cli.RunDoctor(ctx, cmdArgs, os.Stdout, os.Stderr)
 	case "help", "-h", "--help":
