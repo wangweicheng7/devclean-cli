@@ -17,7 +17,7 @@ func realMain() int {
 	ctx := context.Background()
 
 	// We keep root flags minimal; each subcommand has its own flagset.
-	root := flag.NewFlagSet("cleandev", flag.ContinueOnError)
+	root := flag.NewFlagSet("devclean", flag.ContinueOnError)
 	root.SetOutput(os.Stderr)
 	_ = root.Parse(os.Args[1:])
 

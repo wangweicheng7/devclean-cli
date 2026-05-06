@@ -1,6 +1,6 @@
-BINARY_NAME ?= cleandev
+BINARY_NAME ?= devclean
 PKG ?= ./...
-FORMULA_PATH ?= homebrew-tap/Formula/cleandev-cli.rb
+FORMULA_PATH ?= homebrew-tap/Formula/devclean-cli.rb
 
 .PHONY: fmt test build run install-user uninstall-user brew-formula-update brew-install-local sha256-url
 

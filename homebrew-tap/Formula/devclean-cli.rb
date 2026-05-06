@@ -1,4 +1,4 @@
-class CleandevCli < Formula
+class DevcleanCli < Formula
   desc "macOS developer cleanup CLI (safe-first)"
   homepage "https://github.com/wangweicheng7/cleandev-cli"
   version "v0.1.0"
@@ -9,11 +9,11 @@ class CleandevCli < Formula
   depends_on "go" => :build
 
   def install
-    system "go", "build", *std_go_args(output: bin/"cleandev"), "./cmd/cleandev"
+    system "go", "build", *std_go_args(output: bin/"devclean"), "./cmd/cleandev"
   end
 
   test do
-    system "#{bin}/cleandev", "doctor"
+    system "#{bin}/devclean", "doctor"
   end
 end
 

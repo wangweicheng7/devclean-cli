@@ -8,7 +8,7 @@ if [[ -z "${TAG}" ]]; then
 fi
 
 REPO="wangweicheng7/cleandev-cli"
-FORMULA_FILE="homebrew-tap/Formula/cleandev-cli.rb"
+FORMULA_FILE="homebrew-tap/Formula/devclean-cli.rb"
 
 URL="https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz"
 TMP_TAR="$(mktemp -t cleandev-cli.XXXXXX.tar.gz)"
