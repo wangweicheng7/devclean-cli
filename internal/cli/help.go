@@ -11,7 +11,7 @@ func PrintHelp(w io.Writer) {
 Usage:
   devclean scan  [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--with-size] [--json]
   devclean plan  [same as scan]
-  devclean clean [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--dry-run] [--confirm] [--with-size] [--json]
+  devclean clean [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--dry-run] [--confirm] [--interactive] [--with-size] [--json]
   devclean doctor
 
 Notes:

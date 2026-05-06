@@ -7,6 +7,7 @@
 - `scan` / `plan`：扫描可清理项并输出预览。
 - `clean --dry-run`：仅预览，不会删除任何文件。
 - `clean --confirm`：显式确认后执行删除。
+- `clean --interactive`：逐项交互确认清理对象。
 - `profile` 分层：`safe` / `dev` / `aggressive`（高风险项默认 `report_only`）。
 
 ## 快速开始（本地运行）
@@ -64,6 +65,6 @@ source ~/.bashrc
 
 - `devclean scan [--profile safe|dev|aggressive] [--json] [--category cache,logs,build]`
 - `devclean plan [同 scan]`
-- `devclean clean [--dry-run] [--confirm] [--profile ...] [--category ...] [--json]`
+- `devclean clean [--dry-run] [--confirm] [--interactive] [--profile ...] [--category ...] [--json]`
 - `devclean doctor`
 

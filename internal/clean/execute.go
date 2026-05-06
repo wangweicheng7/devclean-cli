@@ -14,6 +14,7 @@ type ExecuteOptions struct {
 	Category map[Category]bool // nil or empty => all
 	WithSize bool
 	RepoRoot string
+	TargetIDs []string // nil/empty => all executable items
 }
 
 type ExecuteResult struct {
@@ -43,6 +44,10 @@ func Execute(ctx context.Context, opts ExecuteOptions) (ExecuteResult, error) {
 	}
 
 	res := ExecuteResult{Plan: p, DryRun: opts.DryRun}
+	targetSet := map[string]bool{}
+	for _, id := range opts.TargetIDs {
+		targetSet[id] = true
+	}
 
 	home, err := HomeDir()
 	if err != nil {
@@ -50,6 +55,10 @@ func Execute(ctx context.Context, opts ExecuteOptions) (ExecuteResult, error) {
 	}
 
 	for _, it := range p.Items {
+		if len(targetSet) > 0 && !targetSet[it.ID] {
+			res.SkippedIDs = append(res.SkippedIDs, it.ID)
+			continue
+		}
 		if !it.Exists || it.Skipped {
 			res.SkippedIDs = append(res.SkippedIDs, it.ID)
 			continue
