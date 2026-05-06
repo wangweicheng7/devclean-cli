@@ -21,6 +21,8 @@ func RunDoctor(_ context.Context, _ []string, out io.Writer, _ io.Writer) int {
 		fmt.Fprintln(out, "brew: found")
 	}
 
+	fmt.Fprintln(out, "tip: optional alias -> alias dcl='devclean'")
+
 	return 0
 }
 

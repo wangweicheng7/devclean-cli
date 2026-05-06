@@ -34,6 +34,24 @@ brew install devclean-cli
 devclean doctor
 ```
 
+## 可选：添加短别名 `dcl`
+
+我们不在安装阶段自动修改你的 shell 配置文件（如 `~/.zshrc` / `~/.bashrc`），避免污染用户环境。你可以手动添加：
+
+zsh:
+
+```bash
+echo "alias dcl='devclean'" >> ~/.zshrc
+source ~/.zshrc
+```
+
+bash:
+
+```bash
+echo "alias dcl='devclean'" >> ~/.bashrc
+source ~/.bashrc
+```
+
 ## 命令
 
 - `devclean scan [--profile safe|dev|aggressive] [--json] [--category cache,logs,build]`
