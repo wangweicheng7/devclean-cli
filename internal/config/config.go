@@ -72,6 +72,15 @@ func WriteTemplate(path string, force bool) error {
 	return nil
 }
 
+func Save(path string, cfg FileConfig) error {
+	b, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	return os.WriteFile(path, b, 0o644)
+}
+
 func strPtr(s string) *string { return &s }
 func boolPtr(b bool) *bool    { return &b }
 

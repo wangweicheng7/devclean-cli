@@ -68,6 +68,7 @@ source ~/.bashrc
 - `devclean plan [同 scan]`
 - `devclean clean [--dry-run] [--confirm] [--interactive] [--profile ...] [--category ...] [--json]`
 - `devclean config init [--path .devcleanrc.json] [--force]`
+- `devclean config prune-missing [--apply]`
 - `devclean doctor`
 
 示例（扫描常见代码目录中的工程垃圾）：

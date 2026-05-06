@@ -13,6 +13,7 @@ Usage:
   devclean plan  [same as scan]
   devclean clean [--config path] [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--discover-projects] [--discover-roots a,b] [--discover-depth 4] [--discover-refresh] [--dry-run] [--confirm] [--interactive] [--with-size] [--json]
   devclean config init [--path .devcleanrc.json] [--force]
+  devclean config prune-missing [--config path] [--apply]
   devclean doctor
 
 Notes:
