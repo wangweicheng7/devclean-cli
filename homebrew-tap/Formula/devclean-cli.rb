@@ -5,7 +5,7 @@ class DevcleanCli < Formula
 
   # For releases, update url/sha256/version to the corresponding tag tarball.
   url "https://github.com/wangweicheng7/devclean-cli/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "12668827a2ccb9fdb2c05087588b78133c252c6e14bb827ec1af57c8f5e211ce"
+  sha256 "ac19f3fca77921d11b6e6cc0314ff407607c3ea600131fe756debcdcc3c94fc4"
   depends_on "go" => :build
 
   def install
