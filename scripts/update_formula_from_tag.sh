@@ -27,7 +27,9 @@ SHA="$(shasum -a 256 "${TMP_TAR}" | awk '{print $1}')"
 # - version "..."
 # - url "..."
 # - sha256 "..."
-perl -pi -e "s/^  version \"[^\"]*\"\\s*\$/  version \"${TAG}\"/m; s#^  url \"[^\"]*\"\\s*\$#  url \"${URL}\"#m; s/^  sha256 \"[^\"]*\"\\s*\$/  sha256 \"${SHA}\"/m" "${FORMULA_FILE}"
+#
+# We use slurp mode to safely replace the url+sha256 pair with an explicit newline.
+perl -0777 -pi -e "s/^\\s*version\\s+\"[^\"]*\"\\s*$/  version \"${TAG}\"/m; s/^\\s*url\\s+\"[^\"]*\"\\s*\\n\\s*sha256\\s+\"[^\"]*\"\\s*$/  url \"${URL}\"\\n  sha256 \"${SHA}\"/m" "${FORMULA_FILE}"
 
 echo "updated ${FORMULA_FILE}" >&2
 echo "version: ${TAG}" >&2
