@@ -11,6 +11,12 @@
 - `scan/clean --discover-projects`：自动发现开发工程目录，并纳入工程垃圾目录（如 `node_modules`、`dist`、`build`、`.dart_tool`、`ios/Pods`、`android/.gradle`）。
 - `profile` 分层：`safe` / `dev` / `aggressive`（高风险项默认 `report_only`）。
 
+### profile 怎么选？
+
+- **safe**：只包含最保守、最不容易踩坑的项目（例如 Go build cache）。适合第一次试用。
+- **dev（推荐日常默认）**：在 safe 基础上加入开发者常见项：工程垃圾（`node_modules`/`dist`/`build`/`.dart_tool`/`ios/Pods` 等），以及 **Xcode/Gradle 等默认 report-only 的“大项”**（显示但不删）。
+- **aggressive**：保留给未来更激进/更可能影响环境的项目（当前一般不需要用它）。
+
 ## 快速开始（本地运行）
 
 ```bash
@@ -86,7 +92,7 @@ source ~/.bashrc
 示例（扫描常见代码目录中的工程垃圾）：
 
 ```bash
-devclean scan --discover-projects --discover-roots ~/Code,~/Projects --with-size
+devclean scan --profile dev --discover-projects --discover-roots ~/Code,~/Projects --with-size
 devclean clean --discover-projects --discover-roots ~/Code,~/Projects --dry-run
 # 强制刷新发现缓存
 devclean scan --discover-projects --discover-refresh
@@ -98,5 +104,13 @@ devclean scan --discover-projects --discover-debug
 
 默认配置文件名：`.devcleanrc.json`（当前目录）。
 
-优先级：**CLI 参数 > `--config` 指定文件 > 当前目录配置文件 > 默认值**。
+查找顺序：**当前目录 `./.devcleanrc.json` > 用户目录 `~/.devcleanrc.json`**。
+
+优先级：**CLI 参数 > `--config` 指定文件 > 自动发现的配置文件 > 默认值**。
+
+建议先生成一份配置，把日常默认的 profile 固化下来：
+
+```bash
+devclean config init
+```
 

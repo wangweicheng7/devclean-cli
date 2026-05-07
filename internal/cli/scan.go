@@ -19,7 +19,7 @@ func RunScan(ctx context.Context, args []string, out io.Writer, errOut io.Writer
 	fs.SetOutput(errOut)
 
 	configPath := &stringFlag{}
-	fs.Var(configPath, "config", "path to config file (default: .devcleanrc.json in current dir)")
+	fs.Var(configPath, "config", "path to config file (default: .devcleanrc.json in current dir; fallback: ~/.devcleanrc.json)")
 
 	profile := &stringFlag{v: string(clean.ProfileSafe)}
 	fs.Var(profile, "profile", "safe|dev|aggressive")
@@ -59,6 +59,9 @@ func RunScan(ctx context.Context, args []string, out io.Writer, errOut io.Writer
 	if err != nil {
 		fmt.Fprintln(errOut, err.Error())
 		return 2
+	}
+	if *discoverProjects && p == clean.ProfileSafe {
+		fmt.Fprintln(errOut, "tip: --discover-projects only includes project junk targets on --profile dev|aggressive (current: safe)")
 	}
 
 	cats, err := clean.ParseCategories(category.v)

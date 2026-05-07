@@ -29,6 +29,13 @@ sleep_secs="${SLEEP_SECS:-10}"
 start="$(date +%s)"
 
 while true; do
+  # If the GitHub Release already exists with expected artifacts, skip waiting.
+  if gh release view "${TAG}" --json assets >/dev/null 2>&1; then
+    if gh release view "${TAG}" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx 'checksums.txt'; then
+      break
+    fi
+  fi
+
   now="$(date +%s)"
   if (( now - start > deadline_secs )); then
     echo "timeout waiting for release workflow for ${TAG}" >&2
@@ -36,18 +43,26 @@ while true; do
     exit 1
   fi
 
-  run_json="$(gh run list --workflow Release -L 20 --json databaseId,headBranch,status,conclusion,createdAt)"
-  # Find the run where headBranch equals the tag.
-  run_line="$(python3 - "${TAG}" <<'PY'
+  run_json="$(gh run list --workflow Release -L 20 --json databaseId,headBranch,status,conclusion,createdAt 2>/dev/null || true)"
+  if [[ -z "${run_json}" ]]; then
+    sleep "${sleep_secs}"
+    continue
+  fi
+
+  # Find the run where headBranch equals the tag. If JSON parsing fails, return empty.
+  run_line="$(printf '%s' "${run_json}" | python3 - "${TAG}" <<'PY'
 import json, sys
 tag = sys.argv[1]
-data = json.load(sys.stdin)
+try:
+  data = json.load(sys.stdin)
+except Exception:
+  sys.exit(0)
 for r in data:
   if r.get("headBranch") == tag:
     print(f'{r.get("databaseId")} {r.get("status")} {r.get("conclusion")}')
     break
 PY
-<<<"${run_json}")"
+)"
 
   if [[ -z "${run_line}" ]]; then
     sleep "${sleep_secs}"

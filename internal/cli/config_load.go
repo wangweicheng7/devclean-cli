@@ -3,12 +3,14 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/wangweicheng7/devclean-cli/internal/config"
 )
 
 func loadConfig(configPath string) (config.FileConfig, string, error) {
 	cwd, _ := os.Getwd()
+	home, _ := os.UserHomeDir()
 
 	if configPath != "" {
 		cfg, err := config.Load(configPath)
@@ -18,6 +20,15 @@ func loadConfig(configPath string) (config.FileConfig, string, error) {
 	if p, ok := config.FindDefault(cwd); ok {
 		cfg, err := config.Load(p)
 		return cfg, p, err
+	}
+
+	// fallback: global config in home directory
+	if home != "" {
+		p := filepath.Join(home, config.DefaultConfigFilename)
+		if _, err := os.Stat(p); err == nil {
+			cfg, err := config.Load(p)
+			return cfg, p, err
+		}
 	}
 
 	return config.FileConfig{}, "", nil

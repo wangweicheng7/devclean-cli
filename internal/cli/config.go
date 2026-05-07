@@ -32,7 +32,7 @@ func runConfigInit(args []string, out io.Writer, errOut io.Writer) int {
 	fs := flag.NewFlagSet("config init", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 
-	path := fs.String("path", config.DefaultConfigFilename, "path to write config template")
+	path := fs.String("path", "", "path to write config template (default: ~/.devcleanrc.json)")
 	force := fs.Bool("force", false, "overwrite existing file")
 
 	if err := fs.Parse(args); err != nil {
@@ -40,7 +40,14 @@ func runConfigInit(args []string, out io.Writer, errOut io.Writer) int {
 	}
 
 	p := *path
-	if !filepath.IsAbs(p) {
+	if p == "" {
+		home, _ := os.UserHomeDir()
+		if home == "" {
+			fmt.Fprintln(errOut, "cannot determine home directory (pass --path explicitly)")
+			return 1
+		}
+		p = filepath.Join(home, config.DefaultConfigFilename)
+	} else if !filepath.IsAbs(p) {
 		cwd, _ := os.Getwd()
 		p = filepath.Join(cwd, p)
 	}
@@ -58,7 +65,7 @@ func runConfigPruneMissing(args []string, out io.Writer, errOut io.Writer) int {
 	fs := flag.NewFlagSet("config prune-missing", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 
-	configPath := fs.String("config", "", "path to config file (default: .devcleanrc.json in current dir)")
+	configPath := fs.String("config", "", "path to config file (default: .devcleanrc.json in current dir; fallback: ~/.devcleanrc.json)")
 	apply := fs.Bool("apply", false, "write changes back to config file")
 
 	if err := fs.Parse(args); err != nil {
