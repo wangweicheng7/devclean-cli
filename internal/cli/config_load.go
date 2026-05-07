@@ -52,6 +52,15 @@ func applyBoolFromConfig(dst *bool, flagSet bool, cfgVal *bool) {
 	}
 }
 
+func applyIntFromConfig(dst *int, flagSet bool, cfgVal *int) {
+	if flagSet {
+		return
+	}
+	if cfgVal != nil {
+		*dst = *cfgVal
+	}
+}
+
 func validateConfigPath(err error, usedPath string) error {
 	if err == nil {
 		return nil
@@ -61,4 +70,3 @@ func validateConfigPath(err error, usedPath string) error {
 	}
 	return fmt.Errorf("config %s: %w", usedPath, err)
 }
-

@@ -3,6 +3,7 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -39,8 +40,24 @@ func (f *boolFlag) Set(s string) error {
 	}
 	return flag.ErrHelp
 }
-func (f *boolFlag) IsSet() bool { return f.set }
+func (f *boolFlag) IsSet() bool      { return f.set }
 func (f *boolFlag) IsBoolFlag() bool { return true }
 
 func newBoolFlag(def bool) *boolFlag { return &boolFlag{v: def} }
 
+type intFlag struct {
+	v   int
+	set bool
+}
+
+func (f *intFlag) String() string { return fmt.Sprintf("%d", f.v) }
+func (f *intFlag) Set(s string) error {
+	f.set = true
+	i, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil {
+		return flag.ErrHelp
+	}
+	f.v = i
+	return nil
+}
+func (f *intFlag) IsSet() bool { return f.set }

@@ -28,10 +28,12 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 
 	repo := &stringFlag{}
 	fs.Var(repo, "repo", "path to repository root (scan build artifacts; report-only)")
-	discoverProjects := fs.Bool("discover-projects", false, "discover dev project folders under roots and include project junk dirs")
+	discoverProjects := newBoolFlag(false)
+	fs.Var(discoverProjects, "discover-projects", "discover dev project folders under roots and include project junk dirs")
 	discoverRoots := &stringFlag{}
 	fs.Var(discoverRoots, "discover-roots", "comma-separated roots for project discovery (default ~/Code,~/Projects,~/workspace)")
-	discoverDepth := fs.Int("discover-depth", 4, "max directory depth for project discovery")
+	discoverDepth := &intFlag{v: 4}
+	fs.Var(discoverDepth, "discover-depth", "max directory depth for project discovery")
 	discoverRefresh := fs.Bool("discover-refresh", false, "force refresh project discovery cache")
 	discoverDebug := fs.Bool("discover-debug", false, "print project discovery debug logs")
 
@@ -56,13 +58,20 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 	applyStringFromConfig(&category.v, category.IsSet(), cfg.Category)
 	applyStringFromConfig(&repo.v, repo.IsSet(), cfg.Repo)
 	applyBoolFromConfig(&withSizeFlag.v, withSizeFlag.IsSet(), cfg.WithSize)
+	if cfg.Discover != nil {
+		applyBoolFromConfig(&discoverProjects.v, discoverProjects.IsSet(), cfg.Discover.Enabled)
+		if !discoverRoots.IsSet() && len(cfg.Discover.Roots) > 0 {
+			discoverRoots.v = strings.Join(cfg.Discover.Roots, ",")
+		}
+		applyIntFromConfig(&discoverDepth.v, discoverDepth.IsSet(), cfg.Discover.MaxDepth)
+	}
 
 	p, err := clean.ParseProfile(profile.v)
 	if err != nil {
 		fmt.Fprintln(errOut, err.Error())
 		return 2
 	}
-	if *discoverProjects && p == clean.ProfileSafe {
+	if discoverProjects.v && p == clean.ProfileSafe {
 		fmt.Fprintln(errOut, "tip: --discover-projects only includes project junk targets on --profile dev|aggressive (current: safe)")
 	}
 	cats, err := clean.ParseCategories(category.v)
@@ -91,11 +100,11 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 			WithSize:   withSizeFlag.v,
 			RepoRoot:   repo.v,
 			Discover: clean.DiscoverOptions{
-				Enabled:  *discoverProjects,
-				Roots:    splitCSV(discoverRoots.v),
-				MaxDepth: *discoverDepth,
-				Refresh:  *discoverRefresh,
-				Debug:    *discoverDebug,
+				Enabled:   discoverProjects.v,
+				Roots:     splitCSV(discoverRoots.v),
+				MaxDepth:  discoverDepth.v,
+				Refresh:   *discoverRefresh,
+				Debug:     *discoverDebug,
 				DebugLogs: &discoverLogs,
 			},
 		})
@@ -119,20 +128,20 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 	}
 
 	res, err := clean.Execute(ctx, clean.ExecuteOptions{
-		DryRun:    *dryRun,
-		Confirm:   *confirm,
-		Profile:   p,
-		Category:  catSet,
-		WithSize:  withSizeFlag.v,
-		RepoRoot:  repo.v,
-		TargetIDs: selectedIDs,
+		DryRun:     *dryRun,
+		Confirm:    *confirm,
+		Profile:    p,
+		Category:   catSet,
+		WithSize:   withSizeFlag.v,
+		RepoRoot:   repo.v,
+		TargetIDs:  selectedIDs,
 		ExcludeIDs: cfg.ExcludeIDs,
 		Discover: clean.DiscoverOptions{
-			Enabled:  *discoverProjects,
-			Roots:    splitCSV(discoverRoots.v),
-			MaxDepth: *discoverDepth,
-			Refresh:  *discoverRefresh,
-			Debug:    *discoverDebug,
+			Enabled:   discoverProjects.v,
+			Roots:     splitCSV(discoverRoots.v),
+			MaxDepth:  discoverDepth.v,
+			Refresh:   *discoverRefresh,
+			Debug:     *discoverDebug,
 			DebugLogs: &discoverLogs,
 		},
 	})
@@ -204,4 +213,3 @@ func chooseInteractive(plan clean.Plan, out io.Writer, errOut io.Writer) ([]stri
 	}
 	return selected, nil
 }
-

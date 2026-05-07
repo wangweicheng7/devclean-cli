@@ -14,12 +14,19 @@ const DefaultConfigFilename = ".devcleanrc.json"
 // - nil => not set in config file
 // - non-nil => set and should override defaults (unless CLI flags are provided)
 type FileConfig struct {
-	Profile    *string  `json:"profile,omitempty"`   // safe|dev|aggressive
-	Category   *string  `json:"category,omitempty"`  // "cache,logs,build"
-	Repo       *string  `json:"repo,omitempty"`      // repo root path
-	WithSize   *bool    `json:"with_size,omitempty"` // default true
-	ExcludeIDs []string `json:"exclude_ids,omitempty"`
-	IncludeIDs []string `json:"include_ids,omitempty"`
+	Profile    *string         `json:"profile,omitempty"`   // safe|dev|aggressive
+	Category   *string         `json:"category,omitempty"`  // "cache,logs,build"
+	Repo       *string         `json:"repo,omitempty"`      // repo root path
+	WithSize   *bool           `json:"with_size,omitempty"` // default true
+	Discover   *DiscoverConfig `json:"discover,omitempty"`
+	ExcludeIDs []string        `json:"exclude_ids,omitempty"`
+	IncludeIDs []string        `json:"include_ids,omitempty"`
+}
+
+type DiscoverConfig struct {
+	Enabled  *bool    `json:"enabled,omitempty"`
+	Roots    []string `json:"roots,omitempty"`
+	MaxDepth *int     `json:"max_depth,omitempty"`
 }
 
 func Load(path string) (FileConfig, error) {
@@ -56,6 +63,11 @@ func WriteTemplate(path string, force bool) error {
 		Category: strPtr("cache,logs,build"),
 		Repo:     strPtr(""),
 		WithSize: boolPtr(true),
+		Discover: &DiscoverConfig{
+			Enabled:  boolPtr(true),
+			Roots:    []string{"~/Documents"},
+			MaxDepth: intPtr(8),
+		},
 		// Optional:
 		// IncludeIDs: []string{"go-build-cache"},
 		// ExcludeIDs: []string{"npm-cache"},
@@ -83,4 +95,4 @@ func Save(path string, cfg FileConfig) error {
 
 func strPtr(s string) *string { return &s }
 func boolPtr(b bool) *bool    { return &b }
-
+func intPtr(i int) *int       { return &i }
