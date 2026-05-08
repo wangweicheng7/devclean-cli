@@ -16,6 +16,7 @@ type ScanOptions struct {
 	WithSize   bool
 	RepoRoot   string // when set, additionally scan repo build artifacts (report-only)
 	Discover   DiscoverOptions
+	UserCaches bool // include ~/Library/Caches/* (top-level only, report-only)
 }
 
 func BuildPlan(ctx context.Context, opts ScanOptions) (Plan, error) {
@@ -87,6 +88,13 @@ func BuildPlan(ctx context.Context, opts ScanOptions) (Plan, error) {
 	// Home targets.
 	if err := addItems(home, all); err != nil {
 		return Plan{}, err
+	}
+
+	// User Library caches (report-only).
+	if opts.UserCaches {
+		if err := addItems(home, UserLibraryCachesTargets(home)); err != nil {
+			return Plan{}, err
+		}
 	}
 
 	// Repo targets (report-only).
@@ -251,4 +259,3 @@ func dirSize(ctx context.Context, root string) (bytes int64, files int64, err er
 	})
 	return bytes, files, err
 }
-

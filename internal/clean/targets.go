@@ -111,6 +111,51 @@ func DefaultTargets(home string) []Item {
 	}
 }
 
+// UserLibraryCachesTargets returns top-level cache dirs under ~/Library/Caches.
+// These are intentionally report-only by default and require explicit allow-report-only
+// to delete (see CLI flag).
+func UserLibraryCachesTargets(home string) []Item {
+	cacheRoot := filepath.Join(home, "Library", "Caches")
+	entries, err := os.ReadDir(cacheRoot)
+	if err != nil {
+		return nil
+	}
+
+	// Avoid duplicate/surprising entries for caches already tracked explicitly.
+	skipNames := map[string]bool{
+		"go-build":  true,
+		"npm":       true,
+		"Yarn":      true,
+		"pip":       true,
+		"CocoaPods": true,
+	}
+
+	var out []Item
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if skipNames[name] {
+			continue
+		}
+		// Keep it shallow: only the directory itself is a candidate.
+		p := filepath.Join(cacheRoot, name)
+		out = append(out, Item{
+			ID:         "user-cache:" + name,
+			Name:       "User cache " + name,
+			Path:       p,
+			Category:   CategoryCache,
+			ProfileMin: ProfileDev,
+			Mode:       ModeReportOnly,
+			Reason:     "user Library cache (may affect app behavior); report-only by default",
+			Warnings:   []string{"report-only (explicitly allow to delete)"},
+			ReportOnly: true,
+		})
+	}
+	return out
+}
+
 func ParseProfile(s string) (Profile, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "", string(ProfileSafe):
@@ -152,4 +197,3 @@ func HomeDir() (string, error) {
 	}
 	return home, nil
 }
-

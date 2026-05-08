@@ -8,22 +8,24 @@ import (
 )
 
 type ExecuteOptions struct {
-	DryRun   bool
-	Confirm  bool
-	Profile  Profile
-	Category map[Category]bool // nil or empty => all
-	WithSize bool
-	RepoRoot string
-	TargetIDs []string // nil/empty => all executable items
-	ExcludeIDs []string // ids to always skip
-	Discover DiscoverOptions
+	DryRun          bool
+	Confirm         bool
+	Profile         Profile
+	Category        map[Category]bool // nil or empty => all
+	WithSize        bool
+	RepoRoot        string
+	TargetIDs       []string // nil/empty => all executable items
+	ExcludeIDs      []string // ids to always skip
+	Discover        DiscoverOptions
+	UserCaches      bool
+	AllowReportOnly bool // allow deletion of report-only items (explicit opt-in)
 }
 
 type ExecuteResult struct {
-	Plan       Plan   `json:"plan"`
+	Plan       Plan     `json:"plan"`
 	DeletedIDs []string `json:"deleted_ids,omitempty"`
 	SkippedIDs []string `json:"skipped_ids,omitempty"`
-	DryRun     bool   `json:"dry_run"`
+	DryRun     bool     `json:"dry_run"`
 }
 
 func Execute(ctx context.Context, opts ExecuteOptions) (ExecuteResult, error) {
@@ -41,6 +43,7 @@ func Execute(ctx context.Context, opts ExecuteOptions) (ExecuteResult, error) {
 		WithSize:   opts.WithSize,
 		RepoRoot:   opts.RepoRoot,
 		Discover:   opts.Discover,
+		UserCaches: opts.UserCaches,
 	})
 	if err != nil {
 		return ExecuteResult{}, err
@@ -74,7 +77,13 @@ func Execute(ctx context.Context, opts ExecuteOptions) (ExecuteResult, error) {
 			res.SkippedIDs = append(res.SkippedIDs, it.ID)
 			continue
 		}
-		if it.Mode != ModeDelete || it.ReportOnly {
+		// By default we never delete report-only items. Only allow when explicitly requested.
+		if it.ReportOnly || it.Mode == ModeReportOnly {
+			if !opts.AllowReportOnly {
+				res.SkippedIDs = append(res.SkippedIDs, it.ID)
+				continue
+			}
+		} else if it.Mode != ModeDelete {
 			res.SkippedIDs = append(res.SkippedIDs, it.ID)
 			continue
 		}
@@ -112,4 +121,3 @@ func Execute(ctx context.Context, opts ExecuteOptions) (ExecuteResult, error) {
 
 	return res, nil
 }
-

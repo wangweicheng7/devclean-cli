@@ -17,6 +17,18 @@
 - **dev（推荐日常默认）**：在 safe 基础上加入开发者常见项：工程垃圾（`node_modules`/`dist`/`build`/`.dart_tool`/`ios/Pods` 等），以及 **Xcode/Gradle 等默认 report-only 的“大项”**（显示但不删）。
 - **aggressive**：保留给未来更激进/更可能影响环境的项目（当前一般不需要用它）。
 
+### 清理 Xcode / Gradle / 用户缓存目录
+
+- 默认 **report-only** 的项（如 Xcode DerivedData、Archives、`~/.gradle/caches`）不会随 `clean --confirm` 删除。
+- 需要删除时，必须显式加上 **`--allow-report-only`**，并建议先 **`--dry-run`** 预览。
+- **`--user-caches`**：把 `~/Library/Caches` 下**一级子目录**纳入扫描；同样默认 report-only，删除需配合 **`--allow-report-only`**。已单独列出的缓存（如 go-build、npm、Yarn、pip、CocoaPods）不会重复出现。
+
+```bash
+devclean scan --profile dev --user-caches --with-size
+devclean clean --profile dev --user-caches --allow-report-only --dry-run
+devclean clean --profile dev --user-caches --allow-report-only --confirm
+```
+
 ## 快速开始（本地运行）
 
 ```bash

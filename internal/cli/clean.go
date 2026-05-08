@@ -36,9 +36,11 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 	fs.Var(discoverDepth, "discover-depth", "max directory depth for project discovery")
 	discoverRefresh := fs.Bool("discover-refresh", false, "force refresh project discovery cache")
 	discoverDebug := fs.Bool("discover-debug", false, "print project discovery debug logs")
+	userCaches := fs.Bool("user-caches", false, "include ~/Library/Caches/* (top-level only, report-only by default)")
 
 	dryRun := fs.Bool("dry-run", false, "preview actions without deleting")
 	confirm := fs.Bool("confirm", false, "execute deletion (required unless --dry-run)")
+	allowReportOnly := fs.Bool("allow-report-only", false, "allow deleting report-only items (Xcode/Gradle/User caches). Use with care.")
 	interactive := fs.Bool("interactive", false, "interactively confirm each candidate item")
 	asJSON := fs.Bool("json", false, "output as json")
 
@@ -99,6 +101,7 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 			Categories: catSet,
 			WithSize:   withSizeFlag.v,
 			RepoRoot:   repo.v,
+			UserCaches: *userCaches,
 			Discover: clean.DiscoverOptions{
 				Enabled:   discoverProjects.v,
 				Roots:     splitCSV(discoverRoots.v),
@@ -115,7 +118,7 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 		if len(cfg.IncludeIDs) > 0 || len(cfg.ExcludeIDs) > 0 {
 			plan.Items = filterItemsByIDs(plan.Items, cfg.IncludeIDs, cfg.ExcludeIDs)
 		}
-		ids, err := chooseInteractive(plan, out, errOut)
+		ids, err := chooseInteractive(plan, *allowReportOnly, out, errOut)
 		if err != nil {
 			fmt.Fprintln(errOut, err.Error())
 			return 1
@@ -128,14 +131,16 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 	}
 
 	res, err := clean.Execute(ctx, clean.ExecuteOptions{
-		DryRun:     *dryRun,
-		Confirm:    *confirm,
-		Profile:    p,
-		Category:   catSet,
-		WithSize:   withSizeFlag.v,
-		RepoRoot:   repo.v,
-		TargetIDs:  selectedIDs,
-		ExcludeIDs: cfg.ExcludeIDs,
+		DryRun:          *dryRun,
+		Confirm:         *confirm,
+		Profile:         p,
+		Category:        catSet,
+		WithSize:        withSizeFlag.v,
+		RepoRoot:        repo.v,
+		UserCaches:      *userCaches,
+		TargetIDs:       selectedIDs,
+		ExcludeIDs:      cfg.ExcludeIDs,
+		AllowReportOnly: *allowReportOnly,
 		Discover: clean.DiscoverOptions{
 			Enabled:   discoverProjects.v,
 			Roots:     splitCSV(discoverRoots.v),
@@ -187,11 +192,17 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 	return 0
 }
 
-func chooseInteractive(plan clean.Plan, out io.Writer, errOut io.Writer) ([]string, error) {
+func chooseInteractive(plan clean.Plan, allowReportOnly bool, out io.Writer, errOut io.Writer) ([]string, error) {
 	reader := bufio.NewReader(os.Stdin)
 	var selected []string
 	for _, it := range plan.Items {
-		if !it.Exists || it.Skipped || it.Mode != clean.ModeDelete || it.ReportOnly {
+		if !it.Exists || it.Skipped {
+			continue
+		}
+		if (it.ReportOnly || it.Mode == clean.ModeReportOnly) && !allowReportOnly {
+			continue
+		}
+		if it.Mode != clean.ModeDelete && !(allowReportOnly && (it.ReportOnly || it.Mode == clean.ModeReportOnly)) {
 			continue
 		}
 		size := ""
