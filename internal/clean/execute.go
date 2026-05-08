@@ -13,6 +13,7 @@ type ExecuteOptions struct {
 	Profile         Profile
 	Category        map[Category]bool // nil or empty => all
 	WithSize        bool
+	All             bool
 	RepoRoot        string
 	TargetIDs       []string // nil/empty => all executable items
 	ExcludeIDs      []string // ids to always skip
@@ -101,6 +102,7 @@ func Execute(ctx context.Context, opts ExecuteOptions) (ExecuteResult, error) {
 		Profile:    opts.Profile,
 		Categories: opts.Category,
 		WithSize:   opts.WithSize,
+		All:        opts.All,
 		RepoRoot:   opts.RepoRoot,
 		Discover:   opts.Discover,
 		UserCaches: opts.UserCaches,

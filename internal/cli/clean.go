@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/wangweicheng7/devclean-cli/internal/clean"
 )
@@ -37,6 +38,7 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 	discoverRefresh := fs.Bool("discover-refresh", false, "force refresh project discovery cache")
 	discoverDebug := fs.Bool("discover-debug", false, "print project discovery debug logs")
 	userCaches := fs.Bool("user-caches", false, "include ~/Library/Caches/* (top-level only, report-only by default)")
+	all := fs.Bool("all", false, "include all candidates, including empty directories")
 
 	dryRun := fs.Bool("dry-run", false, "preview actions without deleting")
 	confirm := fs.Bool("confirm", false, "execute deletion (required unless --dry-run)")
@@ -97,10 +99,14 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 	var selectedIDs []string
 	var discoverLogs []string
 	if *interactive {
+		stopSpinner := startSpinner(errOut, "scanning")
+		defer stopSpinner()
+
 		plan, err := clean.BuildPlan(ctx, clean.ScanOptions{
 			Profile:    p,
 			Categories: catSet,
 			WithSize:   withSizeFlag.v,
+			All:        *all,
 			RepoRoot:   repo.v,
 			UserCaches: *userCaches,
 			Discover: clean.DiscoverOptions{
@@ -112,6 +118,7 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 				DebugLogs: &discoverLogs,
 			},
 		})
+		stopSpinner()
 		if err != nil {
 			fmt.Fprintln(errOut, err.Error())
 			return 1
@@ -146,6 +153,7 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 		Profile:         p,
 		Category:        catSet,
 		WithSize:        withSizeFlag.v,
+		All:             *all,
 		RepoRoot:        repo.v,
 		UserCaches:      *userCaches,
 		TargetIDs:       selectedIDs,
@@ -216,6 +224,12 @@ func chooseInteractive(ctx context.Context, plan clean.Plan, allowReportOnly boo
 		if it.Mode != clean.ModeDelete && !(allowReportOnly && (it.ReportOnly || it.Mode == clean.ModeReportOnly)) {
 			continue
 		}
+		// Reduce confirmation noise: skip empty directories when size is known.
+		// (When WithSize is disabled, Bytes/FileCount will be 0 even for non-empty dirs,
+		// so this only triggers when file_count is actually computed as 0.)
+		if it.Bytes == 0 && it.FileCount == 0 && !hasSizeFailure(it.Warnings) {
+			continue
+		}
 		size := ""
 		if it.Bytes > 0 {
 			size = fmt.Sprintf(" (%s)", humanBytes(it.Bytes))
@@ -268,4 +282,40 @@ func chooseInteractive(ctx context.Context, plan clean.Plan, allowReportOnly boo
 		fmt.Fprintln(errOut, "interactive: no executable items selected")
 	}
 	return selected, nil
+}
+
+func hasSizeFailure(warnings []string) bool {
+	for _, w := range warnings {
+		if strings.Contains(strings.ToLower(w), "size calculation failed") {
+			return true
+		}
+	}
+	return false
+}
+
+func startSpinner(w io.Writer, label string) func() {
+	done := make(chan struct{})
+	go func() {
+		frames := []string{"|", "/", "-", "\\"}
+		i := 0
+		for {
+			select {
+			case <-done:
+				// clear line
+				fmt.Fprintf(w, "\r%s... done%s\r", label, strings.Repeat(" ", 20))
+				return
+			case <-time.After(120 * time.Millisecond):
+				fmt.Fprintf(w, "\r%s... %s", label, frames[i%len(frames)])
+				i++
+			}
+		}
+	}()
+	var once bool
+	return func() {
+		if once {
+			return
+		}
+		once = true
+		close(done)
+	}
 }

@@ -14,6 +14,7 @@ type ScanOptions struct {
 	Profile    Profile
 	Categories map[Category]bool // nil or empty => all
 	WithSize   bool
+	All        bool   // include empty dirs and other low-value candidates
 	RepoRoot   string // when set, additionally scan repo build artifacts (report-only)
 	Discover   DiscoverOptions
 	UserCaches bool // include ~/Library/Caches/* (top-level only, report-only)
@@ -78,6 +79,10 @@ func BuildPlan(ctx context.Context, opts ScanOptions) (Plan, error) {
 					scanned.Bytes = bytes
 					scanned.FileCount = files
 				}
+			}
+			// By default, hide empty candidates to reduce noise. `--all` shows everything.
+			if opts.WithSize && !opts.All && scanned.FileCount == 0 && scanned.Bytes == 0 {
+				continue
 			}
 
 			items = append(items, scanned)

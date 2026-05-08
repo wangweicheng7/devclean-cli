@@ -12,9 +12,9 @@ func PrintHelp(w io.Writer) {
 
 Usage:
   devclean version
-  devclean scan  [--config path] [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--discover-projects] [--discover-roots a,b] [--discover-depth 4] [--discover-refresh] [--discover-debug] [--user-caches] [--with-size] [--json]
+  devclean scan  [--config path] [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--discover-projects] [--discover-roots a,b] [--discover-depth 4] [--discover-refresh] [--discover-debug] [--user-caches] [--all] [--with-size] [--json]
   devclean plan  [same as scan]
-  devclean clean [--config path] [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--discover-projects] [--discover-roots a,b] [--discover-depth 4] [--discover-refresh] [--discover-debug] [--user-caches] [--allow-report-only] [--dry-run] [--confirm] [--interactive] [--interactive-batch] [--with-size] [--json]
+  devclean clean [--config path] [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--discover-projects] [--discover-roots a,b] [--discover-depth 4] [--discover-refresh] [--discover-debug] [--user-caches] [--all] [--allow-report-only] [--dry-run] [--confirm] [--interactive] [--interactive-batch] [--with-size] [--json]
   devclean config init [--path path] [--force]
   devclean config exclude add|remove|list [--config path] [--dry-run] <id...>
   devclean config include add|remove|list [--config path] [--dry-run] <id...>
