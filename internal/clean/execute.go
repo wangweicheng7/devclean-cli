@@ -28,6 +28,66 @@ type ExecuteResult struct {
 	DryRun     bool     `json:"dry_run"`
 }
 
+type ExecuteItemOptions struct {
+	DryRun          bool
+	AllowReportOnly bool
+}
+
+// ExecuteItem executes deletion for a single already-planned item, applying the same
+// safety rules as Execute(). It is useful for interactive "apply immediately" flows.
+func ExecuteItem(ctx context.Context, it Item, opts ExecuteItemOptions) (deleted bool, err error) {
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	default:
+	}
+
+	home, err := HomeDir()
+	if err != nil {
+		return false, err
+	}
+
+	if !it.Exists || it.Skipped {
+		return false, nil
+	}
+
+	// By default we never delete report-only items. Only allow when explicitly requested.
+	if it.ReportOnly || it.Mode == ModeReportOnly {
+		if !opts.AllowReportOnly {
+			return false, nil
+		}
+	} else if it.Mode != ModeDelete {
+		return false, nil
+	}
+
+	// Prefer plan-resolved absolute path (helps avoid symlink race conditions).
+	candidate := it.ResolvedAbs
+	if candidate == "" {
+		candidate = it.Path
+		if !filepath.IsAbs(candidate) {
+			candidate = filepath.Join(home, candidate)
+		}
+	}
+	candidate = filepath.Clean(candidate)
+
+	allowedRoot := it.AllowedRoot
+	if allowedRoot == "" {
+		allowedRoot = home
+	}
+	_, _, _, skip, _ := resolveAndValidatePathAllowedRoot(allowedRoot, candidate)
+	if skip {
+		return false, nil
+	}
+
+	if opts.DryRun {
+		return true, nil
+	}
+	if err := os.RemoveAll(candidate); err != nil {
+		return false, fmt.Errorf("remove %s: %w", candidate, err)
+	}
+	return true, nil
+}
+
 func Execute(ctx context.Context, opts ExecuteOptions) (ExecuteResult, error) {
 	// If both are set, we treat it as dry-run to avoid surprising deletions.
 	if opts.DryRun && opts.Confirm {

@@ -42,6 +42,7 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 	confirm := fs.Bool("confirm", false, "execute deletion (required unless --dry-run)")
 	allowReportOnly := fs.Bool("allow-report-only", false, "allow deleting report-only items (Xcode/Gradle/User caches). Use with care.")
 	interactive := fs.Bool("interactive", false, "interactively confirm each candidate item")
+	interactiveBatch := fs.Bool("interactive-batch", false, "batch mode: choose items first, then execute at the end (legacy behavior)")
 	asJSON := fs.Bool("json", false, "output as json")
 
 	withSizeFlag := newBoolFlag(true)
@@ -118,10 +119,15 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 		if len(cfg.IncludeIDs) > 0 || len(cfg.ExcludeIDs) > 0 {
 			plan.Items = filterItemsByIDs(plan.Items, cfg.IncludeIDs, cfg.ExcludeIDs)
 		}
-		ids, err := chooseInteractive(plan, *allowReportOnly, out, errOut)
+		applyImmediately := !*interactiveBatch
+		ids, err := chooseInteractive(ctx, plan, *allowReportOnly, applyImmediately, *dryRun, out, errOut)
 		if err != nil {
 			fmt.Fprintln(errOut, err.Error())
 			return 1
+		}
+		// When applying immediately, deletion is already done item-by-item.
+		if applyImmediately {
+			return 0
 		}
 		if len(ids) == 0 {
 			fmt.Fprintln(out, "interactive: no item selected, nothing to do")
@@ -196,9 +202,10 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 	return 0
 }
 
-func chooseInteractive(plan clean.Plan, allowReportOnly bool, out io.Writer, errOut io.Writer) ([]string, error) {
+func chooseInteractive(ctx context.Context, plan clean.Plan, allowReportOnly bool, applyImmediately bool, dryRun bool, out io.Writer, errOut io.Writer) ([]string, error) {
 	reader := bufio.NewReader(os.Stdin)
 	var selected []string
+	var applied int
 	for _, it := range plan.Items {
 		if !it.Exists || it.Skipped {
 			continue
@@ -224,8 +231,38 @@ func chooseInteractive(plan clean.Plan, allowReportOnly bool, out io.Writer, err
 		}
 		answer := strings.ToLower(strings.TrimSpace(line))
 		if answer == "y" || answer == "yes" {
+			if applyImmediately {
+				ok, err := clean.ExecuteItem(ctx, it, clean.ExecuteItemOptions{
+					DryRun:          dryRun,
+					AllowReportOnly: allowReportOnly,
+				})
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					applied++
+					if dryRun {
+						fmt.Fprintf(out, "would delete: %s\n\n", path)
+					} else {
+						fmt.Fprintf(out, "deleted: %s\n\n", path)
+					}
+				} else {
+					fmt.Fprintf(out, "skipped: %s\n\n", path)
+				}
+				continue
+			}
 			selected = append(selected, it.ID)
 		}
+	}
+	if applyImmediately {
+		if applied == 0 {
+			fmt.Fprintln(errOut, "interactive: no executable items selected")
+		} else if dryRun {
+			fmt.Fprintf(errOut, "interactive: would delete %d item(s)\n", applied)
+		} else {
+			fmt.Fprintf(errOut, "interactive: deleted %d item(s)\n", applied)
+		}
+		return nil, nil
 	}
 	if len(selected) == 0 {
 		fmt.Fprintln(errOut, "interactive: no executable items selected")
