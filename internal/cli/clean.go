@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -214,6 +215,10 @@ func chooseInteractive(ctx context.Context, plan clean.Plan, allowReportOnly boo
 	reader := bufio.NewReader(os.Stdin)
 	var selected []string
 	var applied int
+	projectGroups := map[string][]clean.Item{}
+	var projectRootsOrdered []string
+	var singles []clean.Item
+
 	for _, it := range plan.Items {
 		if !it.Exists || it.Skipped {
 			continue
@@ -230,6 +235,87 @@ func chooseInteractive(ctx context.Context, plan clean.Plan, allowReportOnly boo
 		if it.Bytes == 0 && it.FileCount == 0 && !hasSizeFailure(it.Warnings) {
 			continue
 		}
+		if root, ok := projectRootFromID(it.ID); ok && root != "" {
+			if _, exists := projectGroups[root]; !exists {
+				projectRootsOrdered = append(projectRootsOrdered, root)
+			}
+			projectGroups[root] = append(projectGroups[root], it)
+			continue
+		}
+		singles = append(singles, it)
+	}
+
+	// Project-first interaction: one confirmation per project, delete selected
+	// project's matched cache/build dirs together.
+	for _, root := range projectRootsOrdered {
+		items := projectGroups[root]
+		if len(items) == 0 {
+			continue
+		}
+		projectName := filepath.Base(root)
+		var totalBytes int64
+		for _, it := range items {
+			totalBytes += it.Bytes
+		}
+		totalSize := ""
+		if totalBytes > 0 {
+			totalSize = fmt.Sprintf(" (%s)", humanBytes(totalBytes))
+		}
+		fmt.Fprintf(out, "clean project? %s%s\n  root: %s\n", projectName, totalSize, root)
+		for _, it := range items {
+			path := it.ResolvedAbs
+			if path == "" {
+				path = it.Path
+			}
+			size := "-"
+			if it.Bytes > 0 {
+				size = humanBytes(it.Bytes)
+			}
+			// Keep project item list concise and scannable.
+			fmt.Fprintf(out, "  - %s  %s\n", it.Name, size)
+			fmt.Fprintf(out, "    %s\n", path)
+		}
+		fmt.Fprint(out, "[y/N]: ")
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+		answer := strings.ToLower(strings.TrimSpace(line))
+		if answer != "y" && answer != "yes" {
+			continue
+		}
+
+		for _, it := range items {
+			path := it.ResolvedAbs
+			if path == "" {
+				path = it.Path
+			}
+			if applyImmediately {
+				ok, err := clean.ExecuteItem(ctx, it, clean.ExecuteItemOptions{
+					DryRun:          dryRun,
+					AllowReportOnly: allowReportOnly,
+				})
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					applied++
+					if dryRun {
+						fmt.Fprintf(out, "would delete: %s\n", path)
+					} else {
+						fmt.Fprintf(out, "deleted: %s\n", path)
+					}
+				} else {
+					fmt.Fprintf(out, "skipped: %s\n", path)
+				}
+				continue
+			}
+			selected = append(selected, it.ID)
+		}
+		fmt.Fprintln(out)
+	}
+
+	for _, it := range singles {
 		size := ""
 		if it.Bytes > 0 {
 			size = fmt.Sprintf(" (%s)", humanBytes(it.Bytes))
