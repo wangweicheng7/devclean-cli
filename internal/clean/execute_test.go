@@ -48,7 +48,7 @@ func TestExecute_RequiresConfirmOrDryRun(t *testing.T) {
 		WithSize: false,
 	})
 	if err == nil {
-		t.Fatalf("expected error when neither dry-run nor confirm is provided")
+		t.Fatalf("expected error when deleting without Confirm and without DryRun")
 	}
 }
 

@@ -37,7 +37,7 @@ func RunScan(ctx context.Context, args []string, out io.Writer, errOut io.Writer
 	fs.Var(discoverDepth, "discover-depth", "max directory depth for project discovery")
 	discoverRefresh := fs.Bool("discover-refresh", false, "force refresh project discovery cache")
 	discoverDebug := fs.Bool("discover-debug", false, "print project discovery debug logs")
-	userCaches := fs.Bool("user-caches", false, "include ~/Library/Caches/* (top-level only, report-only by default)")
+	userCaches := fs.Bool("user-caches", false, "include ~/Library/Caches/* (top-level only; deletable targets)")
 	all := fs.Bool("all", false, "include all candidates, including empty directories")
 
 	asJSON := fs.Bool("json", false, "output as json")

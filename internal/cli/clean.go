@@ -38,11 +38,10 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 	fs.Var(discoverDepth, "discover-depth", "max directory depth for project discovery")
 	discoverRefresh := fs.Bool("discover-refresh", false, "force refresh project discovery cache")
 	discoverDebug := fs.Bool("discover-debug", false, "print project discovery debug logs")
-	userCaches := fs.Bool("user-caches", false, "include ~/Library/Caches/* (top-level only, report-only by default)")
+	userCaches := fs.Bool("user-caches", false, "include ~/Library/Caches/* (top-level only; deletable targets)")
 	all := fs.Bool("all", false, "include all candidates, including empty directories")
 
 	dryRun := fs.Bool("dry-run", false, "preview actions without deleting")
-	confirm := fs.Bool("confirm", false, "execute deletion (required unless --dry-run)")
 	allowReportOnly := fs.Bool("allow-report-only", false, "allow deleting report-only items (Xcode/Gradle/User caches). Use with care.")
 	interactive := fs.Bool("interactive", false, "interactively confirm each candidate item")
 	interactiveBatch := fs.Bool("interactive-batch", false, "batch mode: choose items first, then execute at the end (legacy behavior)")
@@ -99,26 +98,89 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 
 	var selectedIDs []string
 	var discoverLogs []string
+	discoverOpts := clean.DiscoverOptions{
+		Enabled:   discoverProjects.v,
+		Roots:     splitCSV(discoverRoots.v),
+		MaxDepth:  discoverDepth.v,
+		Refresh:   *discoverRefresh,
+		Debug:     *discoverDebug,
+		DebugLogs: &discoverLogs,
+	}
+	scanOpts := clean.ScanOptions{
+		Profile:    p,
+		Categories: catSet,
+		WithSize:   withSizeFlag.v,
+		All:        *all,
+		RepoRoot:   repo.v,
+		UserCaches: *userCaches,
+		Discover:   discoverOpts,
+	}
+
+	baseExec := clean.ExecuteOptions{
+		Profile:         p,
+		Category:        catSet,
+		WithSize:        withSizeFlag.v,
+		All:             *all,
+		RepoRoot:        repo.v,
+		UserCaches:      *userCaches,
+		ExcludeIDs:      cfg.ExcludeIDs,
+		AllowReportOnly: *allowReportOnly,
+		Discover:        discoverOpts,
+	}
+
+	writeDiscoverDebug := func() {
+		if !*discoverDebug {
+			return
+		}
+		for _, l := range discoverLogs {
+			fmt.Fprintf(errOut, "[discover] %s\n", l)
+		}
+	}
+
+	finish := func(res clean.ExecuteResult, err error, printPlanTableOut bool) int {
+		if err != nil {
+			fmt.Fprintln(errOut, err.Error())
+			return 1
+		}
+		if *asJSON {
+			enc := json.NewEncoder(out)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(res)
+			return 0
+		}
+		writeDiscoverDebug()
+		if res.DryRun {
+			fmt.Fprintln(out, "dry-run: no files were deleted")
+			if len(res.DeletedIDs) > 0 {
+				fmt.Fprintln(out, "would delete:")
+				for _, id := range res.DeletedIDs {
+					fmt.Fprintf(out, "  - %s\n", id)
+				}
+			} else {
+				fmt.Fprintln(out, "would delete: (none)")
+			}
+		} else {
+			fmt.Fprintln(out, "clean: deletion executed")
+			if len(res.DeletedIDs) > 0 {
+				fmt.Fprintln(out, "deleted:")
+				for _, id := range res.DeletedIDs {
+					fmt.Fprintf(out, "  - %s\n", id)
+				}
+			} else {
+				fmt.Fprintln(out, "deleted: (none)")
+			}
+		}
+		if printPlanTableOut {
+			printPlanTable(out, res.Plan)
+		}
+		return 0
+	}
+
 	if *interactive {
 		stopSpinner := startSpinner(errOut, "scanning")
 		defer stopSpinner()
 
-		plan, err := clean.BuildPlan(ctx, clean.ScanOptions{
-			Profile:    p,
-			Categories: catSet,
-			WithSize:   withSizeFlag.v,
-			All:        *all,
-			RepoRoot:   repo.v,
-			UserCaches: *userCaches,
-			Discover: clean.DiscoverOptions{
-				Enabled:   discoverProjects.v,
-				Roots:     splitCSV(discoverRoots.v),
-				MaxDepth:  discoverDepth.v,
-				Refresh:   *discoverRefresh,
-				Debug:     *discoverDebug,
-				DebugLogs: &discoverLogs,
-			},
-		})
+		plan, err := clean.BuildPlan(ctx, scanOpts)
 		stopSpinner()
 		if err != nil {
 			fmt.Fprintln(errOut, err.Error())
@@ -133,82 +195,138 @@ func RunClean(ctx context.Context, args []string, out io.Writer, errOut io.Write
 			fmt.Fprintln(errOut, err.Error())
 			return 1
 		}
-		// When applying immediately, deletion is already done item-by-item.
 		if applyImmediately {
+			writeDiscoverDebug()
 			return 0
 		}
 		if len(ids) == 0 {
 			fmt.Fprintln(out, "interactive: no item selected, nothing to do")
+			writeDiscoverDebug()
 			return 0
 		}
 		selectedIDs = ids
 	}
 
-	// In interactive mode, user's per-item Y/N is already an explicit authorization,
-	// so we don't require a separate `--confirm` flag.
-	confirmForExecute := *confirm || *interactive
+	baseExec.TargetIDs = selectedIDs
 
-	res, err := clean.Execute(ctx, clean.ExecuteOptions{
-		DryRun:          *dryRun,
-		Confirm:         confirmForExecute,
-		Profile:         p,
-		Category:        catSet,
-		WithSize:        withSizeFlag.v,
-		All:             *all,
-		RepoRoot:        repo.v,
-		UserCaches:      *userCaches,
-		TargetIDs:       selectedIDs,
-		ExcludeIDs:      cfg.ExcludeIDs,
-		AllowReportOnly: *allowReportOnly,
-		Discover: clean.DiscoverOptions{
-			Enabled:   discoverProjects.v,
-			Roots:     splitCSV(discoverRoots.v),
-			MaxDepth:  discoverDepth.v,
-			Refresh:   *discoverRefresh,
-			Debug:     *discoverDebug,
-			DebugLogs: &discoverLogs,
-		},
+	if *dryRun {
+		res, err := clean.Execute(ctx, clean.ExecuteOptions{
+			DryRun:          true,
+			Confirm:         false,
+			Profile:         baseExec.Profile,
+			Category:        baseExec.Category,
+			WithSize:        baseExec.WithSize,
+			All:             baseExec.All,
+			RepoRoot:        baseExec.RepoRoot,
+			UserCaches:      baseExec.UserCaches,
+			TargetIDs:       baseExec.TargetIDs,
+			ExcludeIDs:      baseExec.ExcludeIDs,
+			AllowReportOnly: baseExec.AllowReportOnly,
+			Discover:        baseExec.Discover,
+		})
+		return finish(res, err, true)
+	}
+
+	if *interactive {
+		res, err := clean.Execute(ctx, clean.ExecuteOptions{
+			DryRun:          false,
+			Confirm:         true,
+			Profile:         baseExec.Profile,
+			Category:        baseExec.Category,
+			WithSize:        baseExec.WithSize,
+			All:             baseExec.All,
+			RepoRoot:        baseExec.RepoRoot,
+			UserCaches:      baseExec.UserCaches,
+			TargetIDs:       baseExec.TargetIDs,
+			ExcludeIDs:      baseExec.ExcludeIDs,
+			AllowReportOnly: baseExec.AllowReportOnly,
+			Discover:        baseExec.Discover,
+		})
+		return finish(res, err, true)
+	}
+
+	stopSpinner := startSpinner(errOut, "scanning")
+	plan, err := clean.BuildPlan(ctx, scanOpts)
+	stopSpinner()
+	if err != nil {
+		fmt.Fprintln(errOut, err.Error())
+		return 1
+	}
+	if len(cfg.IncludeIDs) > 0 || len(cfg.ExcludeIDs) > 0 {
+		plan.Items = filterItemsByIDs(plan.Items, cfg.IncludeIDs, cfg.ExcludeIDs)
+	}
+
+	preview, err := clean.Execute(ctx, clean.ExecuteOptions{
+		DryRun:          true,
+		Confirm:         false,
+		PrebuiltPlan:    &plan,
+		Profile:         baseExec.Profile,
+		Category:        baseExec.Category,
+		WithSize:        baseExec.WithSize,
+		All:             baseExec.All,
+		RepoRoot:        baseExec.RepoRoot,
+		UserCaches:      baseExec.UserCaches,
+		TargetIDs:       baseExec.TargetIDs,
+		ExcludeIDs:      baseExec.ExcludeIDs,
+		AllowReportOnly: baseExec.AllowReportOnly,
+		Discover:        baseExec.Discover,
 	})
 	if err != nil {
 		fmt.Fprintln(errOut, err.Error())
 		return 1
 	}
-
-	if *asJSON {
-		enc := json.NewEncoder(out)
-		enc.SetIndent("", "  ")
-		_ = enc.Encode(res)
+	if len(preview.DeletedIDs) == 0 {
+		if *asJSON {
+			enc := json.NewEncoder(out)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(preview)
+			writeDiscoverDebug()
+			return 0
+		}
+		fmt.Fprintln(out, "clean: nothing matched for deletion (try --profile dev or --allow-report-only for report-only items)")
+		writeDiscoverDebug()
 		return 0
 	}
-	if *discoverDebug {
-		for _, l := range discoverLogs {
-			fmt.Fprintf(errOut, "[discover] %s\n", l)
+
+	promptOut := out
+	if *asJSON {
+		promptOut = errOut
+	}
+	if !*asJSON {
+		printPlanTable(out, plan)
+	}
+	ok, err := promptYesNo(os.Stdin, promptOut, "proceed with deletion?")
+	if err != nil {
+		fmt.Fprintln(errOut, err.Error())
+		return 1
+	}
+	if !ok {
+		if *asJSON {
+			_ = json.NewEncoder(out).Encode(map[string]bool{"cancelled": true})
+			writeDiscoverDebug()
+			return 0
 		}
+		fmt.Fprintln(out, "cancelled")
+		writeDiscoverDebug()
+		return 0
 	}
 
-	if res.DryRun {
-		fmt.Fprintln(out, "dry-run: no files were deleted")
-		if len(res.DeletedIDs) > 0 {
-			fmt.Fprintln(out, "would delete:")
-			for _, id := range res.DeletedIDs {
-				fmt.Fprintf(out, "  - %s\n", id)
-			}
-		} else {
-			fmt.Fprintln(out, "would delete: (none)")
-		}
-	} else {
-		fmt.Fprintln(out, "clean: deletion executed")
-		if len(res.DeletedIDs) > 0 {
-			fmt.Fprintln(out, "deleted:")
-			for _, id := range res.DeletedIDs {
-				fmt.Fprintf(out, "  - %s\n", id)
-			}
-		} else {
-			fmt.Fprintln(out, "deleted: (none)")
-		}
-	}
-	printPlanTable(out, res.Plan)
-	return 0
+	res, err := clean.Execute(ctx, clean.ExecuteOptions{
+		DryRun:          false,
+		Confirm:         true,
+		PrebuiltPlan:    &plan,
+		Profile:         baseExec.Profile,
+		Category:        baseExec.Category,
+		WithSize:        baseExec.WithSize,
+		All:             baseExec.All,
+		RepoRoot:        baseExec.RepoRoot,
+		UserCaches:      baseExec.UserCaches,
+		TargetIDs:       baseExec.TargetIDs,
+		ExcludeIDs:      baseExec.ExcludeIDs,
+		AllowReportOnly: baseExec.AllowReportOnly,
+		Discover:        baseExec.Discover,
+	})
+	return finish(res, err, false)
 }
 
 func chooseInteractive(ctx context.Context, plan clean.Plan, allowReportOnly bool, applyImmediately bool, dryRun bool, out io.Writer, errOut io.Writer) ([]string, error) {
@@ -404,4 +522,15 @@ func startSpinner(w io.Writer, label string) func() {
 		once = true
 		close(done)
 	}
+}
+
+func promptYesNo(in io.Reader, out io.Writer, question string) (bool, error) {
+	reader := bufio.NewReader(in)
+	fmt.Fprintf(out, "%s [y/N]: ", question)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+	answer := strings.ToLower(strings.TrimSpace(line))
+	return answer == "y" || answer == "yes", nil
 }

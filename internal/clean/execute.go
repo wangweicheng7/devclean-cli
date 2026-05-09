@@ -9,7 +9,7 @@ import (
 
 type ExecuteOptions struct {
 	DryRun          bool
-	Confirm         bool
+	Confirm         bool // must be true for real deletion unless DryRun (caller sets after explicit user approval)
 	Profile         Profile
 	Category        map[Category]bool // nil or empty => all
 	WithSize        bool
@@ -20,6 +20,8 @@ type ExecuteOptions struct {
 	Discover        DiscoverOptions
 	UserCaches      bool
 	AllowReportOnly bool // allow deletion of report-only items (explicit opt-in)
+	// PrebuiltPlan, when non-nil, skips BuildPlan and uses this snapshot (avoids a second scan).
+	PrebuiltPlan *Plan
 }
 
 type ExecuteResult struct {
@@ -95,20 +97,26 @@ func Execute(ctx context.Context, opts ExecuteOptions) (ExecuteResult, error) {
 		opts.Confirm = false
 	}
 	if !opts.DryRun && !opts.Confirm {
-		return ExecuteResult{}, fmt.Errorf("refusing to clean without --confirm (or use --dry-run to preview)")
+		return ExecuteResult{}, fmt.Errorf("refusing to delete without explicit confirmation (Confirm=true after user approval, or use DryRun)")
 	}
 
-	p, err := BuildPlan(ctx, ScanOptions{
-		Profile:    opts.Profile,
-		Categories: opts.Category,
-		WithSize:   opts.WithSize,
-		All:        opts.All,
-		RepoRoot:   opts.RepoRoot,
-		Discover:   opts.Discover,
-		UserCaches: opts.UserCaches,
-	})
-	if err != nil {
-		return ExecuteResult{}, err
+	var p Plan
+	var err error
+	if opts.PrebuiltPlan != nil {
+		p = *opts.PrebuiltPlan
+	} else {
+		p, err = BuildPlan(ctx, ScanOptions{
+			Profile:    opts.Profile,
+			Categories: opts.Category,
+			WithSize:   opts.WithSize,
+			All:        opts.All,
+			RepoRoot:   opts.RepoRoot,
+			Discover:   opts.Discover,
+			UserCaches: opts.UserCaches,
+		})
+		if err != nil {
+			return ExecuteResult{}, err
+		}
 	}
 
 	res := ExecuteResult{Plan: p, DryRun: opts.DryRun}

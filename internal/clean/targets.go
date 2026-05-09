@@ -111,8 +111,7 @@ func DefaultTargets(home string) []Item {
 }
 
 // UserLibraryCachesTargets returns top-level cache dirs under ~/Library/Caches.
-// These are intentionally report-only by default and require explicit allow-report-only
-// to delete (see CLI flag).
+// They are deletable targets (ModeDelete).
 func UserLibraryCachesTargets(home string) []Item {
 	cacheRoot := filepath.Join(home, "Library", "Caches")
 	entries, err := os.ReadDir(cacheRoot)
@@ -145,11 +144,10 @@ func UserLibraryCachesTargets(home string) []Item {
 			Name:       "User cache " + name,
 			Path:       p,
 			Category:   CategoryCache,
-			ProfileMin: ProfileDev,
-			Mode:       ModeReportOnly,
-			Reason:     "user Library cache (may affect app behavior); report-only by default",
-			Warnings:   []string{"report-only (explicitly allow to delete)"},
-			ReportOnly: true,
+			ProfileMin: ProfileSafe,
+			Mode:       ModeDelete,
+			Reason:     "user Library cache (may affect app behavior); delete with care",
+			Warnings:   []string{"high impact (apps may rebuild cache)"},
 		})
 	}
 	return out

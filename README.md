@@ -6,27 +6,41 @@
 
 - `scan` / `plan`：扫描可清理项并输出预览。
 - `clean --dry-run`：仅预览，不会删除任何文件。
-- `clean --confirm`：显式确认后执行删除。
-- `clean --interactive`：逐项交互确认清理对象。
+- **`devclean clean`（默认）**：先**扫描**并打印与 `scan` 类似的汇总表，再提示一次 **`proceed with deletion? [y/N]`**，输入 `y` 后才真正删除（无需其它确认旗标）。
+- `clean --interactive`：按**工程分组**逐项交互确认；同一工程下多项（如 `node_modules`、`dist`、`build`）一次 `y` 可一并处理；输入 `y` 后立即生效。
+- `scan` / `plan` / `clean` 支持 **`--all`**：默认会隐藏「空目录」（`bytes=0` 且无文件），加 `--all` 则全部列出。
 - `scan/clean --discover-projects`：自动发现开发工程目录，并纳入工程垃圾目录（如 `node_modules`、`dist`、`build`、`.dart_tool`、`ios/Pods`、`android/.gradle`）。
-- `profile` 分层：`safe` / `dev` / `aggressive`（高风险项默认 `report_only`）。
+- **`--user-caches`**：扫描 `~/Library/Caches` 下**一级子目录**（已单独列出的 go-build、npm、Yarn、pip、CocoaPods 等不会重复出现）；**不需要写 `--profile`**，条目在默认 `safe` profile 下即可参与扫描。
+- `profile` 分层：`safe` / `dev` / `aggressive`（部分高风险项仍为 `report_only`，见下文）。
+- `devclean version`：查看版本号（亦支持 `devclean --version` / `-v`）。
 
 ### profile 怎么选？
 
 - **safe**：只包含最保守、最不容易踩坑的项目（例如 Go build cache）。适合第一次试用。
-- **dev（推荐日常默认）**：在 safe 基础上加入开发者常见项：工程垃圾（`node_modules`/`dist`/`build`/`.dart_tool`/`ios/Pods` 等），以及 **Xcode/Gradle 等默认 report-only 的“大项”**（显示但不删）。
+- **dev（推荐日常默认）**：在 safe 基础上加入开发者常见项：工程垃圾（`node_modules`/`dist`/`build`/`.dart_tool`/`ios/Pods` 等），以及 **Xcode DerivedData（默认可删）**；**Xcode Archives、`~/.gradle/caches` 等仍为 report-only**，需 `--allow-report-only` 才允许删除。
 - **aggressive**：保留给未来更激进/更可能影响环境的项目（当前一般不需要用它）。
 
-### 清理 Xcode / Gradle / 用户缓存目录
+### 用户缓存 `~/Library/Caches`
 
-- 默认 **report-only** 的项（如 Xcode DerivedData、Archives、`~/.gradle/caches`）不会随 `clean --confirm` 删除。
-- 需要删除时，必须显式加上 **`--allow-report-only`**，并建议先 **`--dry-run`** 预览。
-- **`--user-caches`**：把 `~/Library/Caches` 下**一级子目录**纳入扫描；同样默认 report-only，删除需配合 **`--allow-report-only`**。已单独列出的缓存（如 go-build、npm、Yarn、pip、CocoaPods）不会重复出现。
+- **`devclean scan --user-caches`**：列出用户缓存一级子目录体积，**不必加 `--profile`**。
+- **`devclean clean --user-caches`**：与其它 `clean` 一样，先扫描再 **`y/N`** 总确认；建议先 **`--dry-run`** 预览。
+- 若仍希望用 **`--allow-report-only`** 去删其它 report-only 大项（如 Archives、Gradle 用户缓存目录），可与 `--user-caches` 组合使用。
 
 ```bash
-devclean scan --profile dev --user-caches --with-size
-devclean clean --profile dev --user-caches --allow-report-only --dry-run
-devclean clean --profile dev --user-caches --allow-report-only --confirm
+devclean scan --user-caches --with-size
+devclean clean --user-caches --dry-run
+devclean clean --user-caches
+```
+
+### 清理其它 report-only 大项（Xcode Archives / Gradle 等）
+
+- 默认 **report-only** 的项不会在未加 **`--allow-report-only`** 时被删除。
+- 需要删除时，显式加 **`--allow-report-only`**，并建议先 **`--dry-run`**。
+
+```bash
+devclean scan --profile dev --with-size
+devclean clean --profile dev --allow-report-only --dry-run
+devclean clean --profile dev --allow-report-only
 ```
 
 ## 快速开始（本地运行）
@@ -34,7 +48,7 @@ devclean clean --profile dev --user-caches --allow-report-only --confirm
 ```bash
 go run ./cmd/devclean scan --profile safe
 go run ./cmd/devclean clean --profile dev --dry-run
-go run ./cmd/devclean clean --profile dev --confirm
+go run ./cmd/devclean clean --profile dev
 ```
 
 ## 安装（Homebrew）
@@ -94,12 +108,19 @@ source ~/.bashrc
 
 ## 命令
 
-- `devclean scan [--profile safe|dev|aggressive] [--json] [--category cache,logs,build]`
-- `devclean plan [同 scan]`
-- `devclean clean [--dry-run] [--confirm] [--interactive] [--profile ...] [--category ...] [--json]`
-- `devclean config init [--path .devcleanrc.json] [--force]`
-- `devclean config prune-missing [--apply]`
+与 `devclean --help` 一致，常用形式如下：
+
+- `devclean version`（或 `devclean -v` / `--version`）
+- `devclean scan [--config path] [--profile safe|dev|aggressive] [--category cache,logs,build] [--repo path] [--discover-projects] [--discover-roots a,b] [--discover-depth N] [--discover-refresh] [--discover-debug] [--user-caches] [--all] [--with-size] [--json]`
+- `devclean plan`：参数同 `scan`
+- `devclean clean`：在 `scan` 基础上还可加 `[--allow-report-only] [--dry-run] [--interactive] [--interactive-batch] [--with-size] [--json]`
+- `devclean config init [--path path] [--force]`
+- `devclean config exclude add|remove|list [--config path] [--dry-run] <id...>`
+- `devclean config include add|remove|list [--config path] [--dry-run] <id...>`
+- `devclean config prune-missing [--config path] [--apply]`
 - `devclean doctor`
+
+说明：非交互的 **`clean`** 在真正删除前会**先扫描并展示计划**，再 **`y/N`** 一次；**`--dry-run`** 只预览、不提示删除；**`--interactive`** 用逐项选择代替这一次总确认。
 
 示例（扫描常见代码目录中的工程垃圾）：
 
@@ -125,4 +146,6 @@ devclean scan --discover-projects --discover-debug
 ```bash
 devclean config init
 ```
+
+可按 target `id` 排除或强制包含条目：`devclean config exclude …`、`devclean config include …`（见 `devclean --help`）。
 
